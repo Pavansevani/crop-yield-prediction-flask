@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Crop Yield Prediction</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --green-900: #1b4d2b;
+        --green-700: #2e7d32;
+        --green-500: #4caf50;
+        --green-100: #e8f5e9;
+        --sand: #f6f9f4;
+      }
+
+      body {
+        background: linear-gradient(180deg, var(--green-100) 0%, var(--sand) 260px, #ffffff 100%);
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        color: #263238;
+      }
+
+      /* Header banner */
+      .page-header {
+        background: linear-gradient(135deg, var(--green-900), var(--green-700));
+        color: #fff;
+        border-radius: 16px;
+        padding: 28px 20px;
+        box-shadow: 0 8px 24px rgba(27, 77, 43, 0.25);
+      }
+      .page-header h2 { font-weight: 700; letter-spacing: 0.3px; margin: 0; }
+      .page-header p { margin: 6px 0 0; opacity: 0.85; font-size: 15px; }
+
+      /* Form card */
+      .form-card {
+        background: #fff;
+        border: 0;
+        border-radius: 16px;
+        padding: 28px 28px 24px;
+        box-shadow: 0 6px 22px rgba(0, 0, 0, 0.08);
+      }
+
+      .section-title {
+        font-size: 15px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--green-700);
+        border-bottom: 2px solid var(--green-100);
+        padding-bottom: 8px;
+        margin: 6px 0 18px;
+      }
+
+      .form-label { font-weight: 600; font-size: 14px; color: #37474f; }
+
+      .form-control, .form-select {
+        border-radius: 10px;
+        border: 1px solid #cfd8dc;
+        padding: 10px 12px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+      .form-control:focus, .form-select:focus {
+        border-color: var(--green-500);
+        box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.2);
+      }
+      .form-control::placeholder { color: #b0bec5; }
+
+      /* Button */
+      .btn-predict {
+        background: linear-gradient(135deg, var(--green-500), var(--green-700));
+        border: 0;
+        color: #fff;
+        font-weight: 600;
+        font-size: 17px;
+        padding: 12px 48px;
+        border-radius: 50px;
+        box-shadow: 0 6px 16px rgba(46, 125, 50, 0.35);
+        transition: transform 0.15s, box-shadow 0.15s;
+      }
+      .btn-predict:hover {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 22px rgba(46, 125, 50, 0.4);
+      }
+      .btn-predict:active { transform: translateY(0); }
+
+      /* Result */
+      .result-box {
+        background: var(--green-100);
+        border: 2px solid var(--green-500);
+        border-radius: 16px;
+        padding: 22px;
+        text-align: center;
+        color: var(--green-900);
+      }
+      .result-box .label { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; }
+      .result-box .value { font-size: 40px; font-weight: 700; line-height: 1.2; }
+      .result-box .unit { font-size: 18px; font-weight: 500; }
+
+      .error-box { border-radius: 12px; }
+
+      @media (max-width: 576px) {
+        .form-card { padding: 20px 16px; }
+        .result-box .value { font-size: 32px; }
+      }
+    </style>
+  </head>
+
+  <body>
+    {# ---------- Dropdown options: column name -> {label: code} ---------- #}
+    {% set selects = {
+      'state_code': {'Punjab':1,'Haryana':2,'Uttar Pradesh':3,'Bihar':4,'West Bengal':5,'Odisha':6,
+        'Madhya Pradesh':7,'Rajasthan':8,'Gujarat':9,'Maharashtra':10,'Karnataka':11,'Andhra Pradesh':12,
+        'Telangana':13,'Tamil Nadu':14,'Kerala':15,'Assam':16,'Chhattisgarh':17,'Jharkhand':18},
+      'agro_climatic_zone_code': {'Western Himalayan Region':1,'Eastern Himalayan Region':2,
+        'Lower Gangetic Plains Region':3,'Middle Gangetic Plains Region':4,'Upper Gangetic Plains Region':5,
+        'Trans-Gangetic Plains Region':6,'Eastern Plateau and Hills Region':7,'Central Plateau and Hills Region':8,
+        'Western Plateau and Hills Region':9,'Southern Plateau and Hills Region':10,
+        'East Coast Plains and Hills Region':11,'West Coast Plains and Hills Region':12,
+        'Gujarat Plains and Hills Region':13,'Western Dry Region':14,'The Islands Region':15},
+      'season_code': {'Kharif (Jun-Oct)':1,'Rabi (Nov-Mar)':2,'Zaid (Mar-Jun)':3,'Annual / Perennial':4},
+      'crop_code': {'Rice':1,'Wheat':2,'Maize':3,'Bajra (Pearl Millet)':4,'Jowar (Sorghum)':5,
+        'Ragi (Finger Millet)':6,'Barley':7,'Chickpea (Gram)':8,'Pigeon Pea (Tur)':9,'Moong (Green Gram)':10,
+        'Urad (Black Gram)':11,'Lentil (Masoor)':12,'Groundnut':13,'Soybean':14,'Mustard (Rapeseed)':15,
+        'Sunflower':16,'Sesame (Til)':17,'Castor':18,'Cumin (Jeera)':19,'Cotton':20,'Sugarcane':21,'Jute':22,
+        'Potato':23,'Onion':24,'Tomato':25,'Chilli':26,'Turmeric':27,'Banana':28,'Tapioca (Cassava)':29},
+      'soil_type_code': {'Alluvial':1,'Black (Regur)':2,'Red':3,'Laterite':4,'Arid / Desert':5,
+        'Mountain / Forest':6,'Saline / Alkaline':7},
+      'irrigation_type_code': {'Rainfed (no irrigation)':1,'Canal':2,'Tube well / Borewell':3,'Open well':4,
+        'Drip':5,'Sprinkler':6,'Tank / Pond':7},
+      'seed_type_code': {'Local / Traditional':1,'Improved (certified / OPV)':2,'Hybrid':3,'Bt Hybrid (cotton)':4},
+      'mechanization_code': {'None (manual / animal power)':0,'Low':1,'Medium':2,'High':3},
+      'pest_disease_code': {'None':0,'Low':1,'Moderate':2,'High':3}
+    } %}
+
+    {% set select_labels = {
+      'state_code': 'State',
+      'agro_climatic_zone_code': 'Agro-Climatic Zone',
+      'season_code': 'Season',
+      'crop_code': 'Crop',
+      'soil_type_code': 'Soil Type',
+      'irrigation_type_code': 'Irrigation Type',
+      'seed_type_code': 'Seed Type',
+      'mechanization_code': 'Mechanization',
+      'pest_disease_code': 'Pest / Disease Severity'
+    } %}
+
+    {# ---------- Number fields: (column name, label, step) ---------- #}
+    {% set number_fields = [
+      ('farm_size_ha', 'Farm Size (ha)', '0.01'),
+      ('soil_ph', 'Soil pH', '0.01'),
+      ('organic_carbon_pct', 'Organic Carbon (%)', '0.01'),
+      ('nitrogen_kg_ha', 'Nitrogen (kg/ha)', '0.1'),
+      ('phosphorus_kg_ha', 'Phosphorus (kg/ha)', '0.1'),
+      ('potassium_kg_ha', 'Potassium (kg/ha)', '0.1'),
+      ('soil_moisture_pct', 'Soil Moisture (%)', '0.1'),
+      ('avg_temp_c', 'Average Temperature (°C)', '0.1'),
+      ('rainfall_mm', 'Rainfall (mm)', '0.1'),
+      ('humidity_pct', 'Humidity (%)', '0.1'),
+      ('sunshine_hours', 'Sunshine (hours/day)', '0.1'),
+      ('sowing_month', 'Sowing Month (1 = Jan ... 12 = Dec)', '1'),
+      ('crop_duration_days', 'Crop Duration (days)', '1'),
+      ('seed_rate_kg_ha', 'Seed Rate (kg/ha)', '0.1'),
+      ('fertilizer_kg_ha', 'Fertilizer N+P+K (kg/ha)', '0.1'),
+      ('organic_manure_t_ha', 'Organic Manure (t/ha)', '0.01'),
+      ('pesticide_l_ha', 'Pesticide (L/ha)', '0.01'),
+      ('num_irrigations', 'Number of Irrigations', '1'),
+      ('labour_days_ha', 'Labour (person-days/ha)', '0.1')
+    ] %}
+
+    <div class="container-fluid mt-4 mb-5 px-4" style="max-width: 1100px;">
+
+      <div class="page-header text-center mb-4">
+        <h2>🌾 Crop Yield Prediction</h2>
+        <p>Enter your farm details to estimate the expected yield in quintals per hectare</p>
+      </div>
+
+      <div class="form-card">
+        <form method="POST">
+
+          <div class="section-title">Farm &amp; Crop Details</div>
+          <div class="row">
+            {% for name, options in selects.items() %}
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ select_labels[name] }}</label>
+              <select name="{{ name }}" class="form-select" required>
+                <option value="">Select {{ select_labels[name] }}</option>
+                {% for label, code in options.items() %}
+                <option value="{{ code }}" {% if request.form.get(name) == code|string %}selected{% endif %}>
+                  {{ label }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="section-title mt-3">Soil, Weather &amp; Inputs</div>
+          <div class="row">
+            {% for name, label, step in number_fields %}
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ label }}</label>
+              <input
+                type="number"
+                step="{{ step }}"
+                name="{{ name }}"
+                class="form-control"
+                placeholder="Enter {{ label|lower }}"
+                min="0"
+                value="{{ request.form.get(name, '') }}"
+                required
+              />
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="text-center mt-4">
+            <button type="submit" class="btn btn-predict">Predict Yield</button>
+          </div>
+        </form>
+
+        {% if result is defined %}
+        <div class="result-box mt-4">
+          <div class="label">Predicted Yield</div>
+          <div class="value">{{ result }} <span class="unit">q/ha</span></div>
+        </div>
+        {% endif %}
+
+        {% if error %}
+        <div class="alert alert-danger error-box mt-4 text-center">
+          <h5 class="mb-0">{{ error }}</h5>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
